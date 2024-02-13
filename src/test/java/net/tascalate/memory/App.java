@@ -27,13 +27,21 @@ import net.tascalate.memory.nio.DirectByteBufferHandler;
 public class App {
 
     public static void main(String[] argv) throws Exception {
+       
+        BucketSizer bs = BucketSizer.byFactor(2).withMinCapacity(512).withAlignment(256);
+        for (long s = 17; s < 11330; s+=200 ) {
+            long idv = bs.sizeToIndex(s);
+            long capacity = bs.indexToCapacity(idv);
+            System.out.println("Size = " + s + ", idx = " + idv + ", capacity = " + capacity);
+        }
+
         long maxMemory = Runtime.getRuntime().maxMemory();
         MemoryResourcePool<ByteBuffer> pool = new MemoryResourcePool<>(
             DirectByteBufferHandler.instance(), 
             maxMemory / 4, // 1024 * 1024 * 1024, 
             maxMemory / 8, //  800 * 1024 * 1024, 
-            100
-            );
+            BucketSizer.byFactor(2).withMinCapacity(512).withAlignment(64)
+        );
 
         for (int k = 0;  k < 3; k++) {
             ByteBuffer bb = DirectByteBufferHandler.instance().create(1024, 1024);

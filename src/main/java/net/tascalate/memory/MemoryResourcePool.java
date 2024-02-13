@@ -47,12 +47,14 @@ public class MemoryResourcePool<T> {
         this(handler, totalCapacity, -1, bucketSizer);
     }
     
-    public MemoryResourcePool(MemoryResourceHandler<T> handler, long totalCapacity, long bucketCapacityFactor) {
+    public MemoryResourcePool(MemoryResourceHandler<T> handler, long totalCapacity, double bucketCapacityFactor) {
         this(handler, totalCapacity, totalCapacity, bucketCapacityFactor);
     }
     
-    public MemoryResourcePool(MemoryResourceHandler<T> handler, long totalCapacity, long poolableCapacity, long bucketCapacityFactor) {
-        this(handler, totalCapacity, poolableCapacity, BucketSizer.byFactor(bucketCapacityFactor < 0 ? Math.max(poolableCapacity / 16, 2) : bucketCapacityFactor));
+    public MemoryResourcePool(MemoryResourceHandler<T> handler, long totalCapacity, long poolableCapacity, double bucketCapacityFactor) {
+        this(handler, totalCapacity, poolableCapacity, 
+             BucketSizer.byFactor(bucketCapacityFactor < 0 ? suggestBucketFactor(poolableCapacity, 32, 2.0) : bucketCapacityFactor)
+                        .withAlignment(32));
     }
     
     public MemoryResourcePool(MemoryResourceHandler<T> handler, long totalCapacity, long poolableCapacity, BucketSizer bucketSizer) {
@@ -361,6 +363,12 @@ public class MemoryResourcePool<T> {
                       .stream()
                       .mapToLong(Bucket::totalCapacity)
                       .sum();        
+    }
+    
+    private static double suggestBucketFactor(long poolableCapacity, int steps, double minFactor) {
+        long normalizedMaxValue = Math.min(poolableCapacity, Integer.MAX_VALUE);
+        double factor = Math.log(normalizedMaxValue) / Math.log(steps);
+        return Math.max(factor, minFactor);
     }
 
 }

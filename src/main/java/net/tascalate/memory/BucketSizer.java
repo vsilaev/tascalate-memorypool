@@ -19,9 +19,45 @@ public interface BucketSizer {
     abstract public long sizeToIndex(long size);
     abstract public long indexToCapacity(long index);
     
-    public static BucketSizer byFactor(long factor) {
+    default BucketSizer withMinCapacity(long minCapacity) {
+        if (minCapacity <= 0) {
+            throw new IllegalArgumentException("Negative minCapacity: " + minCapacity);
+        }
+        BucketSizer delegate = this;
+        long idxShift = delegate.sizeToIndex(minCapacity);
+        return new BucketSizer() {
+            @Override
+            public long sizeToIndex(long size) {
+                return delegate.sizeToIndex(Math.max(size, minCapacity)) - idxShift;
+            }
+            
+            @Override
+            public long indexToCapacity(long index) {
+                return delegate.indexToCapacity(index + idxShift);
+            }
+        };
+    }
+    
+    default BucketSizer withAlignment(long alignment) {
+        BucketSizer delegate = this;
+        return new BucketSizer() {
+            @Override
+            public long sizeToIndex(long size) {
+                return delegate.sizeToIndex(size);
+            }
+            
+            @Override
+            public long indexToCapacity(long index) {
+                long result = delegate.indexToCapacity(index);
+                long reminder = result % alignment;
+                return reminder == 0 ? result : ((long)(result / alignment) + 1) * alignment;
+            }
+        };
+    }
+    
+    public static BucketSizer byFactor(double factor) {
         if (factor <= 0) {
-            throw new IllegalArgumentException("Non-positive factor: " + factor);
+            throw new IllegalArgumentException("Negative factor: " + factor);
         }
         return new BucketSizer() {
             @Override
@@ -29,8 +65,9 @@ public interface BucketSizer {
                 if (size < 0) {
                     throw new IllegalArgumentException("Negative size: " + size);
                 }
-                long bucket = size / factor;
-                if (size % factor > 0)
+                long fixedSize = Math.max(size, 1);
+                long bucket = (long) (Math.log(fixedSize) / Math.log(factor));
+                if (Math.pow(factor, bucket)  < fixedSize)
                     ++bucket;
                 return bucket;
             }
@@ -40,7 +77,33 @@ public interface BucketSizer {
                 if (index < 0) {
                     throw new IllegalArgumentException("Negative index: " + index);
                 }
-                return index * factor;
+                return (long)(Math.pow(factor, index));
+            }
+        };
+    }
+    
+    public static BucketSizer byPage(long pageSize) {
+        if (pageSize <= 0) {
+            throw new IllegalArgumentException("Negative pageSize: " + pageSize);
+        }
+        return new BucketSizer() {
+            @Override
+            public long sizeToIndex(long size) {
+                if (size < 0) {
+                    throw new IllegalArgumentException("Negative size: " + size);
+                }
+                long bucket = size / pageSize;
+                if (size % pageSize > 0)
+                    ++bucket;
+                return bucket;
+            }
+            
+            @Override
+            public long indexToCapacity(long index) {
+                if (index < 0) {
+                    throw new IllegalArgumentException("Negative index: " + index);
+                }
+                return index * pageSize;
             }
         };
     }
