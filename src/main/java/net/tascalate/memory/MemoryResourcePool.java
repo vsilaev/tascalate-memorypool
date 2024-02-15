@@ -53,8 +53,11 @@ public class MemoryResourcePool<T> {
     
     public MemoryResourcePool(MemoryResourceHandler<T> handler, long totalCapacity, long poolableCapacity, double bucketCapacityFactor) {
         this(handler, totalCapacity, poolableCapacity, 
-             BucketSizer.byFactor(bucketCapacityFactor < 0 ? suggestBucketFactor(poolableCapacity, 32, 2.0) : bucketCapacityFactor)
-                        .withAlignment(32));
+             BucketSizer.exponential(bucketCapacityFactor < 0 ? 
+                                  suggestBucketFactor(poolableCapacity, poolableCapacity <= 1024 * 1024 ? 16 : 32, 2.0) 
+                                  : 
+                                  bucketCapacityFactor)
+                        .withAlignment(64));
     }
     
     public MemoryResourcePool(MemoryResourceHandler<T> handler, long totalCapacity, long poolableCapacity, BucketSizer bucketSizer) {

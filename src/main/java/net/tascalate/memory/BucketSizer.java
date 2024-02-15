@@ -55,9 +55,9 @@ public interface BucketSizer {
         };
     }
     
-    public static BucketSizer byFactor(double factor) {
-        if (factor <= 0) {
-            throw new IllegalArgumentException("Negative factor: " + factor);
+    public static BucketSizer exponential(double factor) {
+        if (factor <= 1.0) {
+            throw new IllegalArgumentException("Factor must be greater than 1.0: " + factor);
         }
         return new BucketSizer() {
             @Override
@@ -82,9 +82,9 @@ public interface BucketSizer {
         };
     }
     
-    public static BucketSizer byPage(long pageSize) {
-        if (pageSize <= 0) {
-            throw new IllegalArgumentException("Negative pageSize: " + pageSize);
+    public static BucketSizer linear(long multiplier) {
+        if (multiplier <= 0) {
+            throw new IllegalArgumentException("Multiplier must be a positive integer: " + multiplier);
         }
         return new BucketSizer() {
             @Override
@@ -92,8 +92,8 @@ public interface BucketSizer {
                 if (size < 0) {
                     throw new IllegalArgumentException("Negative size: " + size);
                 }
-                long bucket = size / pageSize;
-                if (size % pageSize > 0)
+                long bucket = size / multiplier;
+                if (size % multiplier > 0)
                     ++bucket;
                 return bucket;
             }
@@ -103,7 +103,7 @@ public interface BucketSizer {
                 if (index < 0) {
                     throw new IllegalArgumentException("Negative index: " + index);
                 }
-                return index * pageSize;
+                return index * multiplier;
             }
         };
     }
