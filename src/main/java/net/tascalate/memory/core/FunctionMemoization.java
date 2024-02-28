@@ -87,6 +87,9 @@ class FunctionMemoization<K, V> implements Function<K, V> {
     }
     
     private void expungeStaleEntries() {
+        if (null == queue) {
+            return;
+        }
         for (Reference<? extends K> ref; (ref = queue.poll()) != null;) {
             @SuppressWarnings("unchecked")
             Reference<K> keyRef = (Reference<K>) ref;
