@@ -19,6 +19,7 @@ import java.lang.ref.Reference;
 import java.lang.ref.ReferenceQueue;
 import java.lang.ref.SoftReference;
 import java.lang.ref.WeakReference;
+import java.util.Objects;
 
 enum ReferenceType {
     HARD() {
@@ -99,9 +100,9 @@ enum ReferenceType {
         @Override
         public boolean equals(Object other) {
             if (other instanceof LookupKey<?>) {
-                return ((LookupKey<?>) other).key == key;
+                return key.equals(((LookupKey<?>)other).key);
             } else {
-                return ((Reference<?>) other).get() == key;
+                return key.equals(((Reference<?>)other).get());
             }
         }
 
@@ -128,7 +129,7 @@ enum ReferenceType {
         @Override
         public boolean equals(Object other) {
             if (other instanceof WeakKey<?>) {
-                return ((WeakKey<?>) other).get() == get();
+                return Objects.equals(((WeakKey<?>) other).get(), get());
             } else {
                 return other.equals(this);
             }
@@ -157,7 +158,7 @@ enum ReferenceType {
         @Override
         public boolean equals(Object other) {
             if (other instanceof SoftKey<?>) {
-                return ((SoftKey<?>) other).get() == get();
+                return Objects.equals(((SoftKey<?>) other).get(), get());
             } else {
                 return other.equals(this);
             }
