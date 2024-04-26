@@ -65,9 +65,9 @@ public interface BucketSizer {
                 if (size < 0) {
                     throw new IllegalArgumentException("Negative size: " + size);
                 }
-                long fixedSize = Math.max(size, 1);
-                long bucket = (long) (Math.log(fixedSize) / Math.log(factor));
-                if (Math.pow(factor, bucket)  < fixedSize)
+                long correctedSize = Math.max(size, 1);
+                long bucket = (long) (Math.log(correctedSize) / Math.log(factor));
+                if (Math.pow(factor, bucket)  < correctedSize)
                     ++bucket;
                 return bucket;
             }

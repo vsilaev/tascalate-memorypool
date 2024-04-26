@@ -25,16 +25,13 @@ public class HeapByteBufferHandler extends ByteBufferHandler {
     
     @Override
     public ByteBuffer create(long size, long capacity) {
-        int isize = verifySizeParam(size);
-        ByteBuffer result = ByteBuffer.allocate(verifySizeParam(capacity));
-        result.position(0);
-        result.limit(isize);
-        return result;
+        return ByteBuffer.allocate(verifySizeParam(capacity));
     }
- 
+    
+
     @Override
     public void destroy(ByteBuffer resource) {
-        reset(resource, false, -1);
+        
     }
     
     public static HeapByteBufferHandler instance() {
@@ -42,4 +39,5 @@ public class HeapByteBufferHandler extends ByteBufferHandler {
     }
     
     private static final HeapByteBufferHandler INSTANCE = new HeapByteBufferHandler();
+
 }

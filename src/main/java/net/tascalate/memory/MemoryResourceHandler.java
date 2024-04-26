@@ -20,7 +20,11 @@ public interface MemoryResourceHandler<T> {
     abstract public void destroy(T resource);
     abstract public long capacityOf(T resource);
     
-    default public void reset(T resource, boolean acquired, long size) {
+    default public void setup(T resource, long size, boolean afterCreate) {
+        
+    }
+    
+    default public void cleanup(T resource, boolean beforeDestroy) {
         
     }
     
@@ -31,20 +35,30 @@ public interface MemoryResourceHandler<T> {
             this.delegate = delegate;
         }
         
+        @Override
         public T create(long size, long capacity) {
             return delegate.create(size, capacity);
         }
         
+        @Override
         public void destroy(T resource) {
             delegate.destroy(resource);
         }
         
+        @Override
         public long capacityOf(T resource) {
             return delegate.capacityOf(resource);
         }
         
-        public void reset(T resource, boolean acquired, long size) {
-            delegate.reset(resource, acquired, size);
+        @Override
+        public void setup(T resource, long size, boolean afterCreate) {
+            delegate.setup(resource, size, afterCreate);
         }
+        
+        @Override
+        public void cleanup(T resource, boolean beforeDestroy) {
+            delegate.cleanup(resource, beforeDestroy);
+        }
+
     }
 }

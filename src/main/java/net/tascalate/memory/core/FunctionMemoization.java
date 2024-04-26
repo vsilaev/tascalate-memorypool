@@ -22,7 +22,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.function.Function;
 
 class FunctionMemoization<K, V> implements Function<K, V> {
-    private final NamedLocks<K> producerMutexes = new NamedLocks<>();
+    private final KeyedLocks<K> producerMutexes = new KeyedLocks<>();
     private final ConcurrentMap<Object, Object> valueMap = new ConcurrentHashMap<>();
     
     private final Function<? super K, ? extends V> fn;
@@ -60,7 +60,7 @@ class FunctionMemoization<K, V> implements Function<K, V> {
             }
         }
 
-        try (NamedLocks.Lock lock = producerMutexes.acquire(key)) {
+        try (KeyedLocks.Lock lock = producerMutexes.acquire(key)) {
             // Double-check after getting mutex
             valueRef = valueMap.get(lookupKeyRef);
             value = valueRef == null ? null : valueRefType.dereference(valueRef);
@@ -78,7 +78,7 @@ class FunctionMemoization<K, V> implements Function<K, V> {
     }
     
     public V forget(K key) {
-        try (NamedLocks.Lock lock = producerMutexes.acquire(key)) {
+        try (KeyedLocks.Lock lock = producerMutexes.acquire(key)) {
             Object valueRef = valueMap.remove(keyRefType.createLookupKey(key));
             return valueRef == null ? null : valueRefType.dereference(valueRef);            
         } catch (InterruptedException ex) {

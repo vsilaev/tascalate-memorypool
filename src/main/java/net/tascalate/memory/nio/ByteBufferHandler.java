@@ -27,10 +27,10 @@ public abstract class ByteBufferHandler implements MemoryResourceHandler<ByteBuf
     }
     
     @Override 
-    public void reset(ByteBuffer resource, boolean acquired, long size) {
+    public void setup(ByteBuffer resource, long size, boolean afterCreate) {
         if (resource != null) {
             resource.position(0);
-            if (acquired && size > 0) {
+            if (size > 0) {
                 resource.limit(verifySizeParam(size));
             }
         }

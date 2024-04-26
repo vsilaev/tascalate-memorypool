@@ -19,7 +19,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CountDownLatch;
 
-final class NamedLocks<K> {
+final class KeyedLocks<K> {
     private final ConcurrentMap<K, Lock> locksByKey = new ConcurrentHashMap<>();
 
     public Lock acquire(K key) throws InterruptedException {

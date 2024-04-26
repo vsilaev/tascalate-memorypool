@@ -27,11 +27,7 @@ public class DirectByteBufferHandler extends ByteBufferHandler {
     
     @Override
     public ByteBuffer create(long size, long capacity) {
-        int isize = verifySizeParam(size);
-        ByteBuffer result = ByteBuffer.allocateDirect(verifySizeParam(capacity));
-        result.position(0);
-        result.limit(isize);
-        return result;
+        return ByteBuffer.allocateDirect(verifySizeParam(capacity));
     }
  
     @Override

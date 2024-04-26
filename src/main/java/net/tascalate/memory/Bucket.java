@@ -38,24 +38,27 @@ class Bucket<T> {
         
         if (resource == null) {
             if (mayCreate) {
-                return handler.create(size, entryCapacity);
+                resource = handler.create(size, entryCapacity);
+                handler.setup(resource, size, true);
+                return resource;
             } else {
                 return null;
             }
         } else {
             count.decrementAndGet();
-            handler.reset(resource, true, size);
+            handler.setup(resource, size, false);
             return resource;
         }
     }
 
     boolean release(T resource, boolean mayPool) {
         if (!mayPool) {
+            handler.cleanup(resource, true);
             handler.destroy(resource);
             return false;
         }
         
-        handler.reset(resource, false, -1);
+        handler.cleanup(resource, false);
         boolean queued = queueOffer(resource);
         if (queued) {
             count.incrementAndGet();
