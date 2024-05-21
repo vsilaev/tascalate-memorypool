@@ -27,7 +27,7 @@ import net.tascalate.memory.nio.DirectByteBufferHandler;
 public class App {
 
     public static void main(String[] argv) throws Exception {
-       
+        testMin();
         BucketSizer bs = BucketSizer.exponential(2).withMinCapacity(512).withAlignment(256);
         for (long s = 17; s < 11330; s+=200 ) {
             long idv = bs.sizeToIndex(s);
@@ -35,7 +35,7 @@ public class App {
             System.out.println("Size = " + s + ", idx = " + idv + ", capacity = " + capacity);
         }
 
-        long maxMemory = Runtime.getRuntime().maxMemory();
+        long maxMemory = 1024 * 1024 * 40;//Runtime.getRuntime().maxMemory();
         MemoryResourcePool<ByteBuffer> pool = new MemoryResourcePool<>(
             DirectByteBufferHandler.instance(), 
             maxMemory / 4, // 1024 * 1024 * 1024, 
@@ -51,29 +51,47 @@ public class App {
             
         }
         
-//        if (System.out != null) {
-//            return;
-//        }
-        
         ExecutorService svc = Executors.newFixedThreadPool(100);
         AtomicInteger idx = new AtomicInteger();
-        for (int i = 0; i < 10000; i++) {
+        int MAX_ITERATIONS = 10000;
+        for (int i = 0; i < MAX_ITERATIONS; i++) {
             svc.submit(() -> {
                 ByteBuffer b;
                 try {
+                    int id = idx.getAndIncrement();
                     b = pool.acquire((long)(Math.random() * 1024 * 1024));
-                    System.out.println("[" + idx.getAndIncrement() + "] " + Thread.currentThread().getName() + " " + b);
-                    b.put((byte) 11);
-                    Thread.sleep((long)(Math.random() * 100));
-                    pool.release(b);
+                    try {
+                        System.out.println("[" + id + "] " + Thread.currentThread().getName() + " " + b);
+                        b.put((byte) 11);
+                        Thread.sleep((long)(Math.random() * 100));
+                    } finally {
+                        pool.release(b);
+                        
+                        if (id == MAX_ITERATIONS - 1) {
+                            svc.submit(() -> pool.close());
+                        }
+                    }
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 } 
             });
         }
-        svc.submit(() -> pool.close());
         svc.shutdown();
         System.out.println();
-        
+    }
+    
+    public static void testMin() throws Exception {
+        BucketSizer bs = BucketSizer.linear(4);
+        MemoryResourcePool<ByteBuffer> pool = new MemoryResourcePool<>(
+            DirectByteBufferHandler.instance(), 6, 6, bs
+        );
+        System.out.println(pool.availableCapacity());
+        ByteBuffer b1 = pool.acquire(4);
+        ByteBuffer b2 = pool.acquire(2);
+        System.out.println(pool.availableCapacity());
+        pool.release(b1);
+        pool.release(b2);
+        System.out.println(pool.availableCapacity());
+        pool.close();
     }
 }

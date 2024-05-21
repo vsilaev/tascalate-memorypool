@@ -20,6 +20,7 @@ import java.util.Comparator;
 import java.util.Deque;
 import java.util.NavigableMap;
 import java.util.TreeMap;
+import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
@@ -140,7 +141,7 @@ public class MemoryResourcePool<T> {
         }
 
         Bucket<T> bucket = bucketFor(size); 
-        long alignedSize = bucket.entryCapacity(); // alignedSize >= size
+        long bucketEntryCapacity = bucket.entryCapacity(); // bucketEntryCapacity >= size
         try {
             // check if we have a free buffer of the right size pooled
             resource = bucket.acquire(originalSize, false);
@@ -151,9 +152,9 @@ public class MemoryResourcePool<T> {
             // now check if the request is immediately satisfiable with the
             // memory on hand or if we need to block
             long availableCapacity = availableCapacityUnsafe(); // notPooledCapacity + pooledCapacity
-            if (availableCapacity >= alignedSize) {
+            if (availableCapacity >= bucketEntryCapacity || EdgeAcquiringStrategy.ENFORCE_POOLABLE_CAPACITY.equals(getEdgeAcquiringStrategy())) {
                 // Prefer to have aligned size - this way we can pool
-                size = alignedSize;
+                size = bucketEntryCapacity;
             }
             if (availableCapacity >= size) {
                 // we have enough unallocated or pooled memory to immediately
@@ -211,7 +212,12 @@ public class MemoryResourcePool<T> {
         }
 
         if (resource == null) {
-            return bucket.acquire(originalSize, true);
+            if (size == bucketEntryCapacity) {
+                resource = bucket.acquire(originalSize, true);
+            } else {
+                resource = handler.create(originalSize, size);
+                handler.setup(resource, originalSize, true);
+            }
         }
         return resource;
     }
@@ -224,9 +230,16 @@ public class MemoryResourcePool<T> {
         long capacity = handler.capacityOf(resource);
         try {
             Bucket<T> bucket = bucketFor(capacity);
-            if (capacity == bucket.entryCapacity() && bucket.release(resource, mayPool(resource, capacity))) {
-                // pooled
+            long bucketEntryCapacity = bucket.entryCapacity();
+            if (capacity == bucketEntryCapacity) {
+                if (bucket.release(resource, mayPool(resource, capacity))) {
+                    // pooled
+                } else {
+                    notPooledCapacity += capacity;
+                }
             } else {
+                handler.cleanup(resource, true);
+                handler.destroy(resource);
                 notPooledCapacity += capacity;
             }
             signalFirstWaiter(true);
@@ -246,7 +259,20 @@ public class MemoryResourcePool<T> {
     }
     
     protected boolean mayPool(T resource, long capacity) {
-        return totalCapacity - notPooledCapacity + capacity <= poolableCapacity;
+        return notPooledCapacity + capacity <= poolableCapacity;
+    }
+    
+    protected EdgeAcquiringStrategy getEdgeAcquiringStrategy() {
+        return EdgeAcquiringStrategy.USE_AVAILABLE_CAPACITY;
+    }
+    
+    protected <V> V withLock(Callable<V> code) throws Exception {
+        lock.lock();
+        try {
+            return code.call();
+        } finally {
+            lock.unlock();
+        }
     }
     
     /**
