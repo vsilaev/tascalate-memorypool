@@ -77,17 +77,18 @@ public class MemoryResourcePool<T> {
         this.bucketSizer = bucketSizer;
         this.notPooledCapacity = totalCapacity;
         this.handler = new MemoryResourceHandler.Delegate<T>(handler) {
-            public T create(long size, long capacity) {
+            @Override
+            public T create(long capacity) {
                 boolean error = true;
                 try {
-                    T resource = delegate.create(size, capacity);
+                    T resource = delegate.create(capacity);
                     error = false;
                     return resource;
                 } finally {
                     if (error) {
                         lock.lock();
                         try {
-                            notPooledCapacity += size;
+                            notPooledCapacity += capacity;
                             signalFirstWaiter(true);
                         } finally {
                             lock.unlock();
@@ -215,7 +216,7 @@ public class MemoryResourcePool<T> {
             if (size == bucketEntryCapacity) {
                 resource = bucket.acquire(originalSize, true);
             } else {
-                resource = handler.create(originalSize, size);
+                resource = handler.create(size);
                 handler.setup(resource, originalSize, true);
             }
         }

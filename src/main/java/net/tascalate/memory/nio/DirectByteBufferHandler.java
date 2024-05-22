@@ -26,7 +26,7 @@ public class DirectByteBufferHandler extends ByteBufferHandler {
     }
     
     @Override
-    public ByteBuffer create(long size, long capacity) {
+    public ByteBuffer create(long capacity) {
         return ByteBuffer.allocateDirect(verifySizeParam(capacity));
     }
  

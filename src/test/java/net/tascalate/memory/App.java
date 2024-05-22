@@ -44,7 +44,7 @@ public class App {
         );
 
         for (int k = 0;  k < 3; k++) {
-            ByteBuffer bb = DirectByteBufferHandler.instance().create(1024, 1024);
+            ByteBuffer bb = DirectByteBufferHandler.instance().create(1024);
             DirectByteBufferHandler.instance().destroy(bb);
             Buffer bx = bb.slice().asCharBuffer();
             CleanerMethodsCache.cleanerOf(bx.getClass(), true).accept(bx);

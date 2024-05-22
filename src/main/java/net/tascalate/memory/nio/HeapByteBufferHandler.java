@@ -24,7 +24,7 @@ public class HeapByteBufferHandler extends ByteBufferHandler {
     }
     
     @Override
-    public ByteBuffer create(long size, long capacity) {
+    public ByteBuffer create(long capacity) {
         return ByteBuffer.allocate(verifySizeParam(capacity));
     }
     

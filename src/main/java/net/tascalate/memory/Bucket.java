@@ -38,7 +38,7 @@ class Bucket<T> {
         
         if (resource == null) {
             if (mayCreate) {
-                resource = handler.create(size, entryCapacity);
+                resource = handler.create(entryCapacity);
                 handler.setup(resource, size, true);
                 return resource;
             } else {

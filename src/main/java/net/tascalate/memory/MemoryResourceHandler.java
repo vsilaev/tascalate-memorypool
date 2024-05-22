@@ -16,7 +16,7 @@
 package net.tascalate.memory;
 
 public interface MemoryResourceHandler<T> {
-    abstract public T create(long size, long capacity);
+    abstract public T create(long capacity);
     abstract public void destroy(T resource);
     abstract public long capacityOf(T resource);
     
@@ -36,8 +36,8 @@ public interface MemoryResourceHandler<T> {
         }
         
         @Override
-        public T create(long size, long capacity) {
-            return delegate.create(size, capacity);
+        public T create(long capacity) {
+            return delegate.create(capacity);
         }
         
         @Override
