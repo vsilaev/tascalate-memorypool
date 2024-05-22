@@ -11,7 +11,7 @@
 
 	<name>Tascalate Memory Pool</name>
 	<url>https://github.com/vsilaev/tascalate-memorypool</url> 
-	<description>Implementation of generic space-limited pool for memory managment (RAM, GPU memory, etc)</description>
+	<description>Implementation of generic space-limited pool for memory management (RAM, GPU memory, etc)</description>
 
 	<licenses>
 		<license>
