@@ -55,7 +55,7 @@ public class MemoryResourcePool<T> {
     public MemoryResourcePool(MemoryResourceHandler<T> handler, long totalCapacity, long poolableCapacity, double bucketCapacityFactor) {
         this(handler, totalCapacity, poolableCapacity, 
              BucketSizer.exponential(bucketCapacityFactor < 0 ? 
-                                         suggestBucketFactor(poolableCapacity, poolableCapacity <= 1024 * 1024 ? 16 : 32, 2.0) 
+                                         suggestBucketFactor(poolableCapacity, poolableCapacity <= 1024 * 1024 ? 32 : 256, 2.0) 
                                          : 
                                          bucketCapacityFactor)
                         .withAlignment(64));
@@ -396,9 +396,8 @@ public class MemoryResourcePool<T> {
     }
     
     private static double suggestBucketFactor(long poolableCapacity, int steps, double minFactor) {
-        long normalizedMaxValue = Math.min(poolableCapacity, Integer.MAX_VALUE);
-        double factor = Math.log(normalizedMaxValue) / Math.log(steps);
-        return Math.max(factor, minFactor);
+        double factor = Math.log(poolableCapacity) / Math.log(steps);
+        return Math.ceil(Math.max(factor, minFactor));
     }
 
 }
