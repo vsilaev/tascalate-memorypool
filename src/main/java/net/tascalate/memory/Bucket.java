@@ -17,17 +17,19 @@ package net.tascalate.memory;
 
 import java.util.Deque;
 import java.util.concurrent.ConcurrentLinkedDeque;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.LongConsumer;
 
 class Bucket<T> {
     private final Deque<T> queue = new ConcurrentLinkedDeque<>();
     private final MemoryResourceHandler<T> handler;
     private final long entryCapacity;
-    private final AtomicInteger count = new AtomicInteger(0);
+    
+    private final LongConsumer totalPoolSizeUpdater;
 
-    Bucket(MemoryResourceHandler<T> handler, long entryCapacity) {
+    Bucket(MemoryResourceHandler<T> handler, long entryCapacity, LongConsumer totalPoolSizeUpdater) {
         this.handler = handler;
         this.entryCapacity = entryCapacity;
+        this.totalPoolSizeUpdater = totalPoolSizeUpdater;
     }
 
     T acquire(long size, boolean mayCreate) {
@@ -45,7 +47,7 @@ class Bucket<T> {
                 return null;
             }
         } else {
-            count.decrementAndGet();
+            totalPoolSizeUpdater.accept(-entryCapacity);
             handler.setup(resource, size, false);
             return resource;
         }
@@ -61,7 +63,7 @@ class Bucket<T> {
         handler.cleanup(resource, false);
         boolean queued = queueOffer(resource);
         if (queued) {
-            count.incrementAndGet();
+            totalPoolSizeUpdater.accept(+entryCapacity);
         }
         return queued;
     }
@@ -81,7 +83,7 @@ class Bucket<T> {
                 }
             }
         } finally {
-            count.addAndGet(-removed);
+            totalPoolSizeUpdater.accept(-removed * entryCapacity);
         }
         return releasedSpace;
     }
@@ -95,24 +97,14 @@ class Bucket<T> {
                 handler.destroy(resource);
             }
         } finally {
-            count.addAndGet(-removed);
+            totalPoolSizeUpdater.accept(-removed * entryCapacity);
         }
     }
-    
-    long totalCapacity() {
-        return count.get() * entryCapacity;
-        // Slower
-        /*
-        return queue.size() * entryCapacity;
-        */
-        // The slowest
-        /*
-        return queue.stream()
-                    .mapToLong(v -> handler.sizeOf(v))
-                    .sum();
-        */
-    }
 
+    boolean hasPooled() {
+        return !queue.isEmpty();
+    }
+    
     long entryCapacity() {
         return entryCapacity;
     }
@@ -127,6 +119,6 @@ class Bucket<T> {
 
     @Override
     public String toString() {
-        return String.format("BucketsChain@%x{%d/%d}", hashCode(), count.get(), entryCapacity);
+        return String.format("BucketsChain@%x{%d/%d}", hashCode(), queue.size(), entryCapacity);
     }
 }

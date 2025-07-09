@@ -22,11 +22,15 @@ import java.util.NavigableMap;
 import java.util.TreeMap;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLongFieldUpdater;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
-
+import java.util.function.LongConsumer;
 
 public class MemoryResourcePool<T> {
+    @SuppressWarnings("rawtypes")
+    private static final AtomicLongFieldUpdater<MemoryResourcePool> POOLED_CAPACITY = AtomicLongFieldUpdater.newUpdater(MemoryResourcePool.class, "pooledCapacity");
+    
     private final ReentrantLock lock = new ReentrantLock();
     // Store buckets in reversed index order, i.e. large chunks will be released first
     private final NavigableMap<Long, Bucket<T>> buckets = new TreeMap<>(Comparator.<Long>naturalOrder().reversed());
@@ -38,6 +42,11 @@ public class MemoryResourcePool<T> {
     private final BucketSizer bucketSizer;
 
     private long notPooledCapacity;
+
+    @SuppressWarnings("unused")
+    private volatile long pooledCapacity = 0L;
+    private final LongConsumer pooledCapacityUpdater = v -> POOLED_CAPACITY.accumulateAndGet(this, v, (x, y) -> x + y);
+    
     private boolean closed;
     
     public MemoryResourcePool(MemoryResourceHandler<T> handler, long totalCapacity) {
@@ -260,7 +269,7 @@ public class MemoryResourcePool<T> {
     }
     
     protected boolean mayPool(T resource, long capacity) {
-        return notPooledCapacity + capacity <= poolableCapacity;
+        return POOLED_CAPACITY.get(this) + capacity <= poolableCapacity;
     }
     
     protected EdgeAcquiringStrategy getEdgeAcquiringStrategy() {
@@ -326,6 +335,31 @@ public class MemoryResourcePool<T> {
         return totalCapacity;
     }
 
+    public long reclaim(long bytesToRelease) {
+        lock.lock();
+        try {
+            long released = 0;
+            if (bytesToRelease > 0) {
+                for (Bucket<T> b : buckets.values()) {
+                    if (bytesToRelease <= 0) {
+                        break;
+                    }
+                    long delta = b.clear(bytesToRelease);
+                    if (delta > 0) {
+                        notPooledCapacity += delta;
+                        bytesToRelease -= delta;
+                    }
+                }
+            }
+            if (released > 0) {
+                signalFirstWaiter(true);
+            }
+            return released;
+        } finally {
+            lock.unlock();
+        }
+    }
+    
     /**
      * Closes the pool. Memory resources may not be longer allocated after this call, but may be deallocated. 
      * All threads awaiting for free memory will be notified to abort.
@@ -348,9 +382,30 @@ public class MemoryResourcePool<T> {
         }
     }
     
+    @Override
+    public String toString() {
+        lock.lock();
+        try {
+            return String.format(
+                "%s@%s[total=%d, available=%d, poolable=%d, pooled=%d]",
+                getClass().getName(), System.identityHashCode(this), 
+                totalCapacity, availableCapacityUnsafe(), poolableCapacity, POOLED_CAPACITY.get(this)
+            );
+        } finally {
+            lock.unlock();
+        }
+    }
+    
+    @Deprecated
+    public boolean hasPooledForCapacity(long capacity) {
+        long idx = bucketSizer.sizeToIndex(capacity);
+        Bucket<T> bucket = buckets.get(idx);
+        return null != bucket && bucket.hasPooled();
+    }
+
     private Bucket<T> bucketFor(long capacity) {
         long idx = bucketSizer.sizeToIndex(capacity);
-        return buckets.computeIfAbsent(idx, v -> new Bucket<>(handler, bucketSizer.indexToCapacity(v.longValue())));
+        return buckets.computeIfAbsent(idx, v -> new Bucket<>(handler, bucketSizer.indexToCapacity(v.longValue()), pooledCapacityUpdater));
     }
 
     /**
@@ -381,18 +436,11 @@ public class MemoryResourcePool<T> {
     }
     
     private boolean hasPooledEntries() {
-        return buckets.values()
-                      .stream()
-                      .filter(b -> b.totalCapacity() > 0)
-                      .findAny().isPresent();
+        return POOLED_CAPACITY.get(this) > 0;
     }
     
     private long availableCapacityUnsafe() {
-        return notPooledCapacity + 
-               buckets.values()
-                      .stream()
-                      .mapToLong(Bucket::totalCapacity)
-                      .sum();        
+        return notPooledCapacity + POOLED_CAPACITY.get(this);
     }
     
     private static double suggestBucketFactor(long poolableCapacity, int steps, double minFactor) {
