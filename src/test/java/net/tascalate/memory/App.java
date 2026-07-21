@@ -17,6 +17,7 @@ package net.tascalate.memory;
 
 import java.nio.Buffer;
 import java.nio.ByteBuffer;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -28,7 +29,9 @@ public class App {
 
     public static void main(String[] argv) throws Exception {
         testMin();
+        
         BucketSizer bs = BucketSizer.exponential(2).withMinCapacity(512).withAlignment(256);
+        
         for (long s = 17; s < 11330; s+=200 ) {
             long idv = bs.sizeToIndex(s);
             long capacity = bs.indexToCapacity(idv);
@@ -36,12 +39,12 @@ public class App {
         }
 
         long maxMemory = 1024 * 1024 * 40;//Runtime.getRuntime().maxMemory();
-        MemoryResourcePool<ByteBuffer> pool = new MemoryResourcePool<>(
-            DirectByteBufferHandler.instance(), 
-            maxMemory / 4, // 1024 * 1024 * 1024, 
-            maxMemory / 8, //  800 * 1024 * 1024, 
-            BucketSizer.exponential(2).withMinCapacity(512).withAlignment(64)
-        );
+        MemoryResourcePool<ByteBuffer> pool = DefaultMemoryResourcePool.<ByteBuffer>builder()
+            .handler(DirectByteBufferHandler.instance())
+            .totalCapacity(maxMemory / 4) // 1024 * 1024 * 1024 
+            .poolableCapacity(maxMemory / 8) //  800 * 1024 * 1024 
+            .bucketSizer(BucketSizer.exponential(2).withMinCapacity(512).withAlignment(64))
+        .build();
 
         for (int k = 0;  k < 3; k++) {
             ByteBuffer bb = DirectByteBufferHandler.instance().create(1024);
@@ -51,9 +54,27 @@ public class App {
             
         }
         
+        System.out.println(pool);
+        ByteBuffer m1 = pool.acquire(250000);
+        for (int i = 0; i < 10; i++) {
+            ByteBuffer m2 = pool.acquire(250000);
+            System.out.println(pool);
+            pool.release(m2);
+        }
+        System.out.println("BEFOR RECLAIM: " + pool);
+        pool.reclaim(pool.totalCapacity());
+        System.out.println("AFTER RECLAIM: " + pool);
+        pool.release(m1);
+        System.out.println(pool);
+        pool.reclaim(pool.totalCapacity());
+        System.out.println(pool);
+        
         ExecutorService svc = Executors.newFixedThreadPool(100);
         AtomicInteger idx = new AtomicInteger();
         int MAX_ITERATIONS = 10000;
+        
+        CountDownLatch latch = new CountDownLatch(MAX_ITERATIONS);
+        
         for (int i = 0; i < MAX_ITERATIONS; i++) {
             svc.submit(() -> {
                 ByteBuffer b;
@@ -66,23 +87,27 @@ public class App {
                         Thread.sleep((long)(Math.random() * 100));
                     } finally {
                         pool.release(b);
-                        
-                        if (id == MAX_ITERATIONS - 1) {
-                            svc.submit(() -> pool.close());
-                        }
                     }
                 } catch (InterruptedException e) {
                     e.printStackTrace();
-                } 
+                    Thread.currentThread().interrupt();
+                } catch (Error | Exception e) {
+                    e.printStackTrace();
+                    throw e;
+                } finally {
+                    latch.countDown();
+                }
             });
         }
+        latch.await();
         svc.shutdown();
+        pool.close();
         System.out.println();
     }
     
     public static void testMin() throws Exception {
         BucketSizer bs = BucketSizer.linear(4);
-        MemoryResourcePool<ByteBuffer> pool = new MemoryResourcePool<>(
+        MemoryResourcePool<ByteBuffer> pool = new DefaultMemoryResourcePool<>(
             DirectByteBufferHandler.instance(), 6, 6, bs
         );
         System.out.println(pool.availableCapacity());

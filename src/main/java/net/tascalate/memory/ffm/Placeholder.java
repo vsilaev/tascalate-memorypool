@@ -1,5 +1,5 @@
 /**
- * Copyright 2023-2026 Valery Silaev (http://vsilaev.com)
+ * Copyright 2026 Valery Silaev (http://vsilaev.com)
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,17 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package net.tascalate.memory.cleaner;
+package net.tascalate.memory.ffm;
 
-import java.nio.ByteBuffer;
-
-import net.tascalate.memory.core.CleanerMethodsCache;
-
-public class CleanerAPI {
-
-    public static void release(ByteBuffer resource) {
-        if (null != resource && resource.isDirect()) {
-            CleanerMethodsCache.cleanerOf(resource.getClass()).accept(resource);
-        }
-    }
+class Placeholder {
+  private Placeholder() {}
 }

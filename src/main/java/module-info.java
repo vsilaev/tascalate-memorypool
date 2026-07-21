@@ -16,5 +16,6 @@
 module net.tascalate.memorypool {
     exports net.tascalate.memory;
     exports net.tascalate.memory.cleaner;
+    exports net.tascalate.memory.ffm;
     exports net.tascalate.memory.nio;
 }

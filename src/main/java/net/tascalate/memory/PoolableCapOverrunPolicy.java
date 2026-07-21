@@ -13,17 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package net.tascalate.memory.cleaner;
+package net.tascalate.memory;
 
-import java.nio.ByteBuffer;
-
-import net.tascalate.memory.core.CleanerMethodsCache;
-
-public class CleanerAPI {
-
-    public static void release(ByteBuffer resource) {
-        if (null != resource && resource.isDirect()) {
-            CleanerMethodsCache.cleanerOf(resource.getClass()).accept(resource);
-        }
-    }
+public enum PoolableCapOverrunPolicy {
+    ALLOCATE_UNPOOLED,
+    BLOCK_CALLER;
 }
