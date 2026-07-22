@@ -76,11 +76,11 @@ public class NativeMemoryDemo {
     }
 }
 ```
-The `BucketSizer` defines what be a capacity of the pooled memory region, for example:
+The `BucketSizer` defines what will be an actual capacity of the poolable memory region, for example:
 ```java
         var bx = BucketSizer.exponential(2)
-                .withMinCapacity(512)
-                .withAlignment(64);
+                 .withMinCapacity(512)
+                 .withAlignment(64);
         for (int i = 0; i < 10; i++) {
             System.out.println(bx.indexToCapacity(i));
         }
@@ -99,4 +99,4 @@ Bucket #8 = 131072
 Bucket #9 = 262144
 ```
 
-So if you requested a `MemorySegment` of the size 15000 bytes, then  16384 bytes will be actually allocated, and when you `release` this `MemorySegment` it will be stored in the bucket #5 for later reuse.
+So if you requested a `MemorySegment` of the size 15 000 bytes, then  16 384 bytes will be actually allocated, and when you `release` this `MemorySegment` it will be stored in the bucket #5 for the later reuse.
