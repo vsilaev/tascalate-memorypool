@@ -101,7 +101,7 @@ public class NativeMemoryDemo {
         // Or smth. more realistic like
         // Runtime.getRuntime().maxMemory() / 2;
 
-        //Handler for native system memory using FFM
+        //Handler for native system memory using direct ByteBuffer
         MemoryResourceHandler<ByteBuffer> handler = DirectByteBufferHandler.instance();
 
         try (MemoryResourcePool<ByteBuffer> pool = DefaultMemoryResourcePool.<ByteBuffer>
@@ -156,8 +156,7 @@ public class NativeMemoryDemo {
     }
 }
 ```
-
-To run it you should enable reflection on the internal JDK classes.
+To run the latest example you should enable reflection on the internal JDK classes.
 For non-modular applications with Java 9+:
 ```
 --add-opens=java.base/sun.nio.ch=ALL-UNNAMED 
