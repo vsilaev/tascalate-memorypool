@@ -1,6 +1,14 @@
 [![Maven Central](https://img.shields.io/maven-central/v/net.tascalate/net.tascalate.memorypool.svg)](https://search.maven.org/artifact/net.tascalate/net.tascalate.memorypool/0.9.2/jar) [![GitHub release](https://img.shields.io/github/release/vsilaev/tascalate-memorypool.svg)](https://github.com/vsilaev/tascalate-memorypool/releases/tag/0.9.2) [![license](https://img.shields.io/github/license/vsilaev/tascalate-memorypool.svg)](http://www.apache.org/licenses/LICENSE-2.0.txt)
 # tascalate-memorypool
-Tascalate MemoryPool
+
+The `MemoryResourcePool` is a highly configurable, space-limited resource manager designed for efficient memory lifecycle management across various domains, including native RAM, NIO direct buffers, or even GPU memory. It provides strict, predictable control over memory consumption by allowing you to define a `totalCapacity` (the absolute maximum amount of memory the pool is permitted to allocate from the system) and a `poolableCapacity` (the maximum amount of that memory retained internally for reuse). This dual-limit design ensures that your application never exceeds its designated memory footprint, effectively preventing out-of-memory errors while maximizing resource utilization.
+
+To optimize performance and minimize allocation overhead, the pool intelligently recycles memory buffers using a configurable `BucketSizer`. Instead of returning memory to the operating system immediately upon release, buffers are categorized into size-aligned buckets (e.g., using exponential sizing with specific minimum capacities and memory alignments) for rapid future reuse. Combined with a flexible Builder API and pluggable `MemoryResourceHandler` implementations, the `MemoryResourcePool` can be finely tuned to match the exact performance requirements of your application, whether you are targeting legacy Java 8 environments or modern Java 22+ with the Foreign Function & Memory (FFM) API.
+
+> **🚀 Project Loom & Virtual Thread Compatibility (Pin-Free)**  
+> This implementation is explicitly designed to be **pin-free** when used with Java Virtual Threads (Project Loom). Traditional resource pools often rely on `synchronized` blocks or methods, which can cause carrier thread pinning and severely degrade the scalability of virtual threads. 
+> 
+> In contrast, `MemoryResourcePool` relies exclusively on `java.util.concurrent.locks.ReentrantLock` and `java.util.concurrent.ConcurrentLinkedDeque` for its internal concurrency control. Because these specific primitives do not pin virtual threads to their carrier threads, you can safely acquire and release memory resources from thousands of concurrent virtual threads without sacrificing the massive scalability benefits of Project Loom.
 
 Example usage (Java 22+ required, using native memory as `MemorySegment`):
 ```java
