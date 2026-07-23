@@ -76,6 +76,101 @@ public class NativeMemoryDemo {
     }
 }
 ```
+
+With Java versions 1.8 to JDK 21 inclusive you can use a memory pool of the `java.nio.ByteBuffer`:
+```java
+package memory.pool.test;
+
+import java.nio.ByteBuffer;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import net.tascalate.memory.BucketSizer;
+import net.tascalate.memory.DefaultMemoryResourcePool;
+import net.tascalate.memory.MemoryResourceHandler;
+import net.tascalate.memory.MemoryResourcePool;
+import net.tascalate.memory.nio.DirectByteBufferHandler;
+
+public class NativeMemoryDemo {
+
+    public static void main(String[] argv) throws Throwable {
+        int MAX_ITERATIONS = 500;
+        long MAX_MEMORY = 1024 * 1024 * 800;
+        // Or smth. more realistic like
+        // Runtime.getRuntime().maxMemory() / 2;
+
+        //Handler for native system memory using FFM
+        MemoryResourceHandler<ByteBuffer> handler = DirectByteBufferHandler.instance();
+
+        try (MemoryResourcePool<ByteBuffer> pool = DefaultMemoryResourcePool.<ByteBuffer>
+            builder()
+            .handler(handler)
+            .totalCapacity(MAX_MEMORY)
+            .poolableCapacity(MAX_MEMORY / 2) // we can pool up to totalCapacity
+            .bucketSizer(BucketSizer.exponential(2)
+                                    .withMinCapacity(512)
+                                    .withAlignment(64))
+            .build()) {
+
+            AtomicInteger idx = new AtomicInteger();
+            CountDownLatch latch = new CountDownLatch(MAX_ITERATIONS);
+
+            ExecutorService executor = Executors.newFixedThreadPool(20);
+            try {
+                for (int i = 0; i < MAX_ITERATIONS; i++) {
+                    executor.submit(() -> {
+                        ByteBuffer b;
+                        try {
+
+                            // ACQUIRE MEMORY RESOURCE
+                            b = pool.acquire((long)(Math.random() * 1024 * 1024));
+
+                            try {
+                                System.out.println("[" + idx.getAndIncrement() + "] " +
+                                                   Thread.currentThread().getName() + " " + b);
+
+                                // USE MEMORY RESOURCE
+                                b.put(0, (byte)42);
+
+                                Thread.sleep((long)(Math.random() * 10));
+                            } finally {
+                                // RELEASE MEMORY RESOURCE
+                                pool.release(b);
+                            }
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                            Thread.currentThread().interrupt();
+                        } finally {
+                            latch.countDown();
+                        }
+                    });
+
+                }
+                latch.await();
+            } finally {
+                executor.shutdown();
+            }
+        }
+    }
+}
+```
+
+To run it you should enable reflection on the internal JDK classes.
+For non-modular applications with Java 9+:
+```
+--add-opens=java.base/sun.nio.ch=ALL-UNNAMED 
+--add-opens=java.base/jdk.internal.ref=ALL-UNNAMED 
+```
+
+For modular applications with Java 9+
+```
+--add-opens=java.base/sun.nio.ch=net.tascalate.memorypool
+--add-opens=java.base/jdk.internal.ref=net.tascalate.memorypool
+```
+
+
 The `BucketSizer` defines what will be an actual capacity of the poolable memory region, for example:
 ```java
         var bx = BucketSizer.exponential(2)
